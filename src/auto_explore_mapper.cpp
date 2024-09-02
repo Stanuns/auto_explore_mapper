@@ -84,8 +84,8 @@ public:
         
         RCLCPP_INFO(get_logger(), "AutoExploreMapper nav2_action_client_");
 
-        declare_parameter("map_path", rclcpp::PARAMETER_STRING);
-        get_parameter("map_path", mapPath_);
+        // declare_parameter("map_path", rclcpp::PARAMETER_STRING);
+        // get_parameter("map_path", mapPath_);
 
         pre_goal.pose.pose.position.x = 0;
         pre_goal.pose.pose.position.y = 0;
@@ -367,7 +367,7 @@ private:
 
     }
 
-    vector<unsigned int> nhood8(unsigned int idx) {
+    vector<unsigned int> Neighborhood8(unsigned int idx) {
         unsigned int mx, my;
         vector<unsigned int> out;
         costmap_.indexToCells(idx, mx, my);
@@ -394,7 +394,7 @@ private:
         return out;
     }
 
-    vector<unsigned int> nhood24(unsigned int idx) {
+    vector<unsigned int> Neighborhood24(unsigned int idx) {
         unsigned int mx, my;
         vector<unsigned int> out;
         costmap_.indexToCells(idx, mx, my);
@@ -448,7 +448,7 @@ private:
         //check there's enough free space for robot to move to frontier 
         int freeCount = 0;
         int occupiedCount = 0;
-        for (unsigned int nbr: nhood24(idx)) {
+        for (unsigned int nbr: Neighborhood24(idx)) {
             if (map[nbr] == FREE_SPACE) {
                 // if (++freeCount >= MIN_FREE_THRESHOLD) {
                 //     return true;
@@ -481,7 +481,7 @@ private:
             bfs.pop();
 
             // try adding cells in 8-connected neighborhood to frontier
-            for (unsigned int nbr: nhood8(idx)) {
+            for (unsigned int nbr: Neighborhood8(idx)) {
                 // check if neighbour is a potential frontier cell
                 if (IsAchievableFrontierCell(nbr, frontier_flag)) {
                     // mark cell as frontier
@@ -546,7 +546,7 @@ private:
             unsigned int idx = bfs.front();
             bfs.pop();
 
-            for (unsigned nbr: nhood8(idx)) {
+            for (unsigned nbr: Neighborhood8(idx)) {
                 // add to queue all free, unvisited cells, use descending search in case
                 // initialized on non-free cell
                 if (map_[nbr] == FREE_SPACE && !visited_flag[nbr]) {

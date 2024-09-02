@@ -8,10 +8,10 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     declared_arguments = [
-        DeclareLaunchArgument(
-            "map_path",
-            description="Map file path",
-        ),
+        # DeclareLaunchArgument(
+        #     "map_path",
+        #     description="Map file path",
+        # ),
         DeclareLaunchArgument(
             "is_sim",
             default_value="true",
@@ -28,7 +28,7 @@ def create_robot_node() -> list:
     """
     :rtype: list
     """
-    map_path = LaunchConfiguration("map_path")
+    # map_path = LaunchConfiguration("map_path")
     is_sim = LaunchConfiguration('is_sim')
     package_name = 'auto_explore_mapper'
 
@@ -38,7 +38,7 @@ def create_robot_node() -> list:
         name="auto_explore_mapper_cartographer",
         parameters=[
             {'use_sim_time': is_sim},
-            {"map_path": map_path}
+            # {"map_path": map_path}
         ]
     )
 
