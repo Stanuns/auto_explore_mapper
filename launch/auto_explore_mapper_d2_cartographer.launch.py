@@ -14,7 +14,7 @@ def generate_launch_description():
         # ),
         DeclareLaunchArgument(
             "is_sim",
-            default_value="true",
+            default_value="false",
         )]
 
     robot_nodes = create_robot_node()
