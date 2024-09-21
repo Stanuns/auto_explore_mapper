@@ -281,12 +281,12 @@ private:
         // }
         if(frontiers.empty()){
             checkFrontierEmpty++;
-            if(checkFrontierEmpty > 15){
+            if(checkFrontierEmpty > 25){
                 RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND and SAVE MAP!");
                 Stop();
                 return;
             }
-            RCLCPP_WARN(get_logger(), "No frontiers can be searched!, checkFrontierEmpty: %d", checkFrontierEmpty);
+            RCLCPP_WARN(get_logger(), "------No frontiers can be searched!, checkFrontierEmpty: %d", checkFrontierEmpty);
             //sleep
             sleep(1);
 
