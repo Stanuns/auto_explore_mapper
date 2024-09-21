@@ -281,12 +281,15 @@ private:
         // }
         if(frontiers.empty()){
             checkFrontierEmpty++;
-            if(checkFrontierEmpty > 3){
+            if(checkFrontierEmpty > 15){
                 RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND and SAVE MAP!");
                 Stop();
                 return;
             }
             RCLCPP_WARN(get_logger(), "No frontiers can be searched!, checkFrontierEmpty: %d", checkFrontierEmpty);
+            //sleep
+            sleep(1);
+
             //清空map_subscription_的map数据
 
             return;
