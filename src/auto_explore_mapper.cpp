@@ -279,7 +279,8 @@ private:
         //     Stop();
         //     return;
         // }
-        if(frontiers.empty()){
+        //if(frontiers.empty()){
+        if(frontiers.size()<=2){
             checkFrontierEmpty++;
             if(checkFrontierEmpty > 25){
                 RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND and SAVE MAP!");
