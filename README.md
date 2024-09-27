@@ -17,4 +17,5 @@ ros2 launch auto_explore_mapper auto_explore_mapper_d2_cartographer.launch.py
 
 ## 二.使用wheeltec diff robot在真实环境下运行
 ```bashrc
+ros2 launch auto_explore_mapper auto_explorer_mapping_whole.launch.py
 ```
