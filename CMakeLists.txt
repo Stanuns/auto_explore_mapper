@@ -41,6 +41,7 @@ set(targets
         auto_explore_mapper
         send_goal_nav2
         marker_publisher
+        map_server
         )
 
 foreach (d ${deps})
