@@ -79,11 +79,11 @@ public:
                 this,
                 "/navigate_to_pose");
 
-        while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))){
-            RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
-        }
+        // while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))){
+        //     RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
+        // }
         
-        RCLCPP_INFO(get_logger(), "AutoExploreMapper nav2_action_client_");
+        // RCLCPP_INFO(get_logger(), "AutoExploreMapper nav2_action_client_");
 
         // declare_parameter("map_path", rclcpp::PARAMETER_STRING);
         // get_parameter("map_path", mapPath_);
@@ -100,7 +100,7 @@ private:
     Costmap2D costmap_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
     Publisher<MarkerArray>::SharedPtr markerArrayPublisher_;
-    // MarkerArray markersMsg_;
+    MarkerArray pre_markersMsg_;
     Subscription<OccupancyGrid>::SharedPtr map_subscription_;
     bool isExploring_ = false;
     // int markerId_;
@@ -109,6 +109,8 @@ private:
     int checkFrontierEmpty = 0;
 
     NavigateToPose::Goal pre_goal;
+
+    bool isReturnInitialPoint = false;
 
 
     Subscription<PoseWithCovarianceStamped>::SharedPtr pose_subscription_;
@@ -255,6 +257,10 @@ private:
             mm_markers.push_back(m);           
         }
         markerArrayPublisher_->publish(markersMsg_);
+
+        for (auto &mm: markersMsg_.markers) {
+            mm.action = Marker::DELETE;
+        }
     }
 
     void ClearMarkers() {
@@ -286,8 +292,22 @@ private:
         if(frontiers.size()<=2){
             checkFrontierEmpty++;
             if(checkFrontierEmpty > 25){
-                RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND and SAVE MAP!");
-                Stop();
+                RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND and SAVE MAP! and return to INITIAL POINT!");
+                //return to INITIAL POINT
+                auto initial_goal = NavigateToPose::Goal();
+                initial_goal.pose.pose.position.x = 0.0;
+                initial_goal.pose.pose.position.y = 0.0;
+                initial_goal.pose.pose.position.z = 0.0;
+                initial_goal.pose.header.frame_id = "map";
+                NavigateToGoal(initial_goal);
+                isReturnInitialPoint = false;
+                sleep(1);//等待NavigateToGoal
+                while(isExploring_){
+                    ;
+                }
+                if(isReturnInitialPoint){
+                   Stop();
+                }  
                 return;
             }
             RCLCPP_WARN(get_logger(), "--------------No frontiers can be searched!!, checkFrontierEmpty: %d--------", checkFrontierEmpty);
@@ -302,7 +322,7 @@ private:
         
 
         //debug 
-        RCLCPP_WARN(get_logger(), "---1---frontiers.size(): %d -----isExploring_:%d ", frontiers.size(),isExploring_);
+        RCLCPP_WARN(get_logger(), "---After SearchFrontiers---frontiers.size(): %d -----isExploring_:%d ", frontiers.size(),isExploring_);
 
         DrawMarkers(frontiers);
         const auto frontier = frontiers[0];
@@ -325,15 +345,28 @@ private:
         goal.pose.header.frame_id = "map";
         RCLCPP_INFO(get_logger(), "Sending goal %f,%f", frontier.centroid.x, frontier.centroid.y);
 
-        pre_goal.pose.pose.position = goal.pose.pose.position;
+        pre_goal.pose.pose.position = goal.pose.pose.position;       
 
+        NavigateToGoal(goal);
+        sleep(1);//等待NavigateToGoal
+    }
+
+    void NavigateToGoal(const NavigateToPose::Goal &goal){
+        isExploring_ = true;
+
+        while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(2))){
+            RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
+        }
+        RCLCPP_INFO(get_logger(), "---------------------- go into NavigateToGoal ----------------------");  
         //send_goal()
         auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
-        send_goal_options.goal_response_callback = [this, &frontier](
+        send_goal_options.goal_response_callback = [this](
                 const GoalHandleNavigateToPose::SharedPtr &goal_handle) {
+
+            RCLCPP_INFO(get_logger(), "---------------------- go into goal_response_callback ----------------------");  
+
             if (goal_handle) {
                 RCLCPP_INFO(get_logger(), "Goal accepted by server, waiting for result");
-                isExploring_ = true;
                 // RCLCPP_INFO(get_logger(), "---------Goal start, isExploring_: %d ",isExploring_);
             } else {
                 RCLCPP_ERROR(get_logger(), "Goal was rejected by server");
@@ -343,12 +376,16 @@ private:
         send_goal_options.feedback_callback = [this](
                 const GoalHandleNavigateToPose::SharedPtr &,
                 const std::shared_ptr<const NavigateToPose::Feedback> &feedback) {
-            RCLCPP_INFO(get_logger(), "Distance remaining: %f", feedback->distance_remaining);
+            if(feedback->distance_remaining < 2){
+                RCLCPP_INFO(get_logger(), "Distance remaining: %f", feedback->distance_remaining);
+            }   
         };
 
         send_goal_options.result_callback = [this](const GoalHandleNavigateToPose::WrappedResult &result) {
             isExploring_ = false;
             //RCLCPP_INFO(get_logger(), "---------Goal end wth a result, isExploring_: %d",isExploring_);
+            RCLCPP_INFO(get_logger(), "---------------------- go into result_callback ,isExploring_: %d--------",isExploring_); 
+            isReturnInitialPoint = true;
             //SaveMap();
             //ClearMarkers();
             //Explore();
@@ -372,7 +409,7 @@ private:
 
     int SaveMap() {
         //refer to map_server.cpp
-        std::shared_ptr<rclcpp::Node> map_saver_node = rclcpp::Node::make_shared("map_saver_client"); //用下面 node_ 代替
+        std::shared_ptr<rclcpp::Node> map_saver_node = rclcpp::Node::make_shared("map_saver_client"); 
         rclcpp::Client<nav2_msgs::srv::SaveMap>::SharedPtr map_saver_client =
             map_saver_node->create_client<nav2_msgs::srv::SaveMap>("/map_saver/save_map");
 
