@@ -66,6 +66,7 @@ public:
     AutoExploreMapper()
             : Node("auto_explore_mapper") {
         RCLCPP_INFO(get_logger(), "AutoExploreMapper started...");
+        node_ = std::shared_ptr<rclcpp::Node>(this, [](rclcpp::Node *) {});
 
         pose_subscription_ = create_subscription<PoseWithCovarianceStamped>(
                 "/pose", 10, bind(&AutoExploreMapper::PoseTopicCallback, this, _1));
@@ -92,6 +93,7 @@ public:
     }
 
 private:
+    rclcpp::Node::SharedPtr node_;
     const double MIN_FRONTIER_DENSITY = 0.3; //0.3
     const double MIN_DISTANCE_TO_FRONTIER = 1.0;
     const int MIN_FREE_THRESHOLD = 4; //4 减少该参数， 增加选取边界点数量
@@ -267,7 +269,8 @@ private:
         pose_subscription_.reset();
         map_subscription_.reset();
         nav2_action_client_->async_cancel_all_goals();
-        // SaveMap();
+        SaveMap();
+        node_.reset();
         // ClearMarkers();
     }
 
@@ -287,7 +290,7 @@ private:
                 Stop();
                 return;
             }
-            RCLCPP_WARN(get_logger(), "------No frontiers can be searched!, checkFrontierEmpty: %d", checkFrontierEmpty);
+            RCLCPP_WARN(get_logger(), "--------------No frontiers can be searched!!, checkFrontierEmpty: %d--------", checkFrontierEmpty);
             //sleep
             sleep(1);
 
@@ -299,7 +302,7 @@ private:
         
 
         //debug 
-        RCLCPP_WARN(get_logger(), "-----1-----frontiers.size(): %d ---------isExploring_:%d ", frontiers.size(),isExploring_);
+        RCLCPP_WARN(get_logger(), "---1---frontiers.size(): %d -----isExploring_:%d ", frontiers.size(),isExploring_);
 
         DrawMarkers(frontiers);
         const auto frontier = frontiers[0];
@@ -331,7 +334,7 @@ private:
             if (goal_handle) {
                 RCLCPP_INFO(get_logger(), "Goal accepted by server, waiting for result");
                 isExploring_ = true;
-                RCLCPP_INFO(get_logger(), "---------Goal start, isExploring_: %d ",isExploring_);
+                // RCLCPP_INFO(get_logger(), "---------Goal start, isExploring_: %d ",isExploring_);
             } else {
                 RCLCPP_ERROR(get_logger(), "Goal was rejected by server");
             }
@@ -345,10 +348,10 @@ private:
 
         send_goal_options.result_callback = [this](const GoalHandleNavigateToPose::WrappedResult &result) {
             isExploring_ = false;
-            RCLCPP_INFO(get_logger(), "---------Goal end wth a result, isExploring_: %d",isExploring_);
+            //RCLCPP_INFO(get_logger(), "---------Goal end wth a result, isExploring_: %d",isExploring_);
             //SaveMap();
-            // ClearMarkers();
-            // Explore();
+            //ClearMarkers();
+            //Explore();
             switch (result.code) {
                 case rclcpp_action::ResultCode::SUCCEEDED:
                     RCLCPP_INFO(get_logger(), "Goal reached");
@@ -367,8 +370,43 @@ private:
         nav2_action_client_->async_send_goal(goal, send_goal_options);
     }
 
-    void SaveMap() {
+    int SaveMap() {
+        //refer to map_server.cpp
+        // std::shared_ptr<rclcpp::Node> map_saver_node = rclcpp::Node::make_shared("map_saver_client"); //用下面node_代替
+        rclcpp::Client<nav2_msgs::srv::SaveMap>::SharedPtr map_saver_client =
+            node_->create_client<nav2_msgs::srv::SaveMap>("/map_saver/save_map");
 
+        auto save_map_request = std::make_shared<nav2_msgs::srv::SaveMap::Request>();
+
+        while (!map_saver_client->wait_for_service(2s)) {
+            if (!rclcpp::ok()) {
+            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the SaveMap service. Exiting.");
+            return -1;
+            }
+            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "SaveMap service not available, waiting again...");
+        }
+
+        save_map_request->map_topic = "/map";
+        rclcpp::Time now = node_->get_clock()->now(); 
+        int t_s = (int)now.seconds() + 8*3600; //UTC+8: 8*3600
+        long sod = t_s%(3600*24);
+        int hh = sod/3600;
+        long moh = sod%3600;
+        int mm = moh/60;
+        int ss = moh%60;
+        save_map_request->map_url = "AutoExploreMap_"+std::to_string(hh)+std::to_string(mm)+std::to_string(ss);
+        auto map_saver_result = map_saver_client->async_send_request(save_map_request);
+
+        // Wait for the result.
+        if (rclcpp::spin_until_future_complete(node_, map_saver_result) ==
+            rclcpp::FutureReturnCode::SUCCESS)
+        {
+            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Auto Save map Successfully");
+        } else {
+            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Auto Failed to save map");
+            return -1;
+        }
+        return 0;
     }
 
     vector<unsigned int> Neighborhood8(unsigned int idx) {
@@ -541,7 +579,7 @@ private:
         queue<unsigned int> bfs;
 
         unsigned int pos = costmap_.getIndex(mx, my);
-        RCLCPP_INFO(get_logger(), "-----------------costmap_.getIndex: %d", pos);
+        RCLCPP_INFO(get_logger(), "costmap_.getIndex: %d", pos);
 
         bfs.push(pos);
         visited_flag[bfs.front()] = true;
