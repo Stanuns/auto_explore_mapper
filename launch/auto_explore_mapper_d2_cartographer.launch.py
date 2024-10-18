@@ -35,7 +35,7 @@ def create_robot_node() -> list:
     auto_explore_mapper = Node(
         package=package_name,
         executable="auto_explore_mapper",
-        name="auto_explore_mapper_cartographer",
+        # name="auto_explore_mapper_cartographer",
         parameters=[
             {'use_sim_time': is_sim},
             # {"map_path": map_path}
