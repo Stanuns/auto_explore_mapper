@@ -100,7 +100,7 @@ private:
     Costmap2D costmap_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
     Publisher<MarkerArray>::SharedPtr markerArrayPublisher_;
-    MarkerArray pre_markersMsg_;
+    int pre_marker_size = 0;
     Subscription<OccupancyGrid>::SharedPtr map_subscription_;
     bool isExploring_ = false;
     // int markerId_;
@@ -224,6 +224,36 @@ private:
     }
 
     void DrawMarkers(const vector<Frontier> &frontiers) {
+        // remove previous markers
+        MarkerArray pre_markersMsg_;
+        int pre_markerId_= 0 ;
+        vector<Marker> &pre_mm_markers = pre_markersMsg_.markers;
+        // ColorRGBA colour;
+        // colour.r = 1;
+        // colour.g = 1;
+        // colour.b = 0;
+        // colour.a = 1.0;
+        for (int i = 0;i < pre_marker_size; i++) {
+            Marker m;
+
+            m.header.frame_id = "map";
+            m.header.stamp = now();
+            m.frame_locked = true;
+
+            m.action = Marker::DELETE;
+            m.ns = "frontiers";
+            m.id = ++pre_markerId_;
+            m.type = Marker::SPHERE;
+            m.pose.position.x = 0;
+            m.pose.position.y = 0;
+            m.scale.x = 0.3;
+            m.scale.y = 0.3;
+            m.scale.z = 0.3;
+            // m.color = colour;
+            pre_mm_markers.push_back(m);           
+        }
+        markerArrayPublisher_->publish(pre_markersMsg_);
+
         // markersMsg_
         MarkerArray markersMsg_;
         int markerId_= 0 ;
@@ -258,9 +288,7 @@ private:
         }
         markerArrayPublisher_->publish(markersMsg_);
 
-        for (auto &mm: markersMsg_.markers) {
-            mm.action = Marker::DELETE;
-        }
+        pre_marker_size = mm_markers.size();
     }
 
     void ClearMarkers() {
@@ -331,8 +359,7 @@ private:
                 goal.pose.pose.position = frontiers[4].centroid;
             }else{
                 goal.pose.pose.position = frontiers[frontiers.size()-1].centroid;
-            }
-            
+            } 
         }
 
         // goal.pose.pose.orientation.w = 1.;

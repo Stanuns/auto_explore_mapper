@@ -118,11 +118,20 @@ class MinimalPublisher : public rclcpp::Node
             m.color = colour;
             mm_markers.push_back(m);           
         }
-        if(tag == 2){
+        if(tag == 1){
             markerArrayPublisher_->publish(markersMsg_);
         }
+
+        sleep(3);
+        for (auto &m: markersMsg_.markers) {
+            m.action = Marker::DELETE;
+        }
+        if(tag == 2){
+            markerArrayPublisher_->publish(markersMsg_);
+        }     
+
         tag++;
-        RCLCPP_INFO(get_logger(), "debug test .... ");
+        RCLCPP_INFO(get_logger(), "debug test end.... ");  
     }
 
     // void ClearMarkers() {
