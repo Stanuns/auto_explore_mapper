@@ -296,6 +296,34 @@ private:
         //     m.action = Marker::DELETE;
         // }
         // markerArrayPublisher_->publish(markersMsg_);
+        MarkerArray last_markersMsg_;
+        int last_markerId_= 0 ;
+        vector<Marker> &last_mm_markers = last_markersMsg_.markers;
+        // ColorRGBA colour;
+        // colour.r = 1;
+        // colour.g = 1;
+        // colour.b = 0;
+        // colour.a = 1.0;
+        for (int i = 0;i < pre_marker_size; i++) {
+            Marker m;
+
+            m.header.frame_id = "map";
+            m.header.stamp = now();
+            m.frame_locked = true;
+
+            m.action = Marker::DELETE;
+            m.ns = "frontiers";
+            m.id = ++last_markerId_;
+            m.type = Marker::SPHERE;
+            m.pose.position.x = 0;
+            m.pose.position.y = 0;
+            m.scale.x = 0.3;
+            m.scale.y = 0.3;
+            m.scale.z = 0.3;
+            // m.color = colour;
+            last_mm_markers.push_back(m);           
+        }
+        markerArrayPublisher_->publish(last_markersMsg_);
     }
 
     void Stop() {
@@ -305,12 +333,16 @@ private:
         nav2_action_client_->async_cancel_all_goals();
         SaveMap();
         // node_.reset();
-        // ClearMarkers();
+        ClearMarkers();
+        markerArrayPublisher_.reset();
     }
 
     void Explore() {
         if (isExploring_) { return; }
         auto frontiers = SearchFrontiers();
+        //debug 
+        RCLCPP_WARN(get_logger(), "---After SearchFrontiers---frontiers.size(): %d -----isExploring_:%d ", frontiers.size(),isExploring_);
+        DrawMarkers(frontiers);
         // if (frontiers.empty()) {
         //     RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND!!");
         //     Stop();
@@ -342,11 +374,6 @@ private:
         }
         checkFrontierEmpty = 0;
         
-
-        //debug 
-        RCLCPP_WARN(get_logger(), "---After SearchFrontiers---frontiers.size(): %d -----isExploring_:%d ", frontiers.size(),isExploring_);
-
-        DrawMarkers(frontiers);
         const auto frontier = frontiers[0];
         auto goal = NavigateToPose::Goal();
         goal.pose.pose.position = frontier.centroid;
