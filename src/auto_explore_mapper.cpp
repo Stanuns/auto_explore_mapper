@@ -299,15 +299,9 @@ private:
                 initial_goal.pose.pose.position.y = 0.0;
                 initial_goal.pose.pose.position.z = 0.0;
                 initial_goal.pose.header.frame_id = "map";
+                isReturnInitialPoint = true;
                 NavigateToGoal(initial_goal);
-                isReturnInitialPoint = false;
-                sleep(1);//等待NavigateToGoal
-                while(isExploring_){
-                    ;
-                }
-                if(isReturnInitialPoint){
-                   Stop();
-                }  
+
                 return;
             }
             RCLCPP_WARN(get_logger(), "--------------No frontiers can be searched!!, checkFrontierEmpty: %d--------", checkFrontierEmpty);
@@ -357,7 +351,7 @@ private:
         while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(2))){
             RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
         }
-        RCLCPP_INFO(get_logger(), "---------------------- go into NavigateToGoal ----------------------");  
+        RCLCPP_INFO(get_logger(), "---------------------- go into NavigateToGoal,isExploring_:%d --------------",isExploring_);  
         //send_goal()
         auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
         send_goal_options.goal_response_callback = [this](
@@ -381,11 +375,9 @@ private:
             }   
         };
 
-        send_goal_options.result_callback = [this](const GoalHandleNavigateToPose::WrappedResult &result) {
-            isExploring_ = false;
+        send_goal_options.result_callback = [this](const GoalHandleNavigateToPose::WrappedResult &result) {        
             //RCLCPP_INFO(get_logger(), "---------Goal end wth a result, isExploring_: %d",isExploring_);
             RCLCPP_INFO(get_logger(), "---------------------- go into result_callback ,isExploring_: %d--------",isExploring_); 
-            isReturnInitialPoint = true;
             //SaveMap();
             //ClearMarkers();
             //Explore();
@@ -403,6 +395,11 @@ private:
                     RCLCPP_ERROR(get_logger(), "Unknown result code");
                     break;
             }
+            if(isReturnInitialPoint){
+                Stop();
+            }
+            isExploring_ = false;
+            isReturnInitialPoint = false;
         };
         nav2_action_client_->async_send_goal(goal, send_goal_options);
     }
