@@ -32,6 +32,8 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
+#include "app_msgs/msg/auto_explore_mapping_state.hpp"
+
 
 using std::placeholders::_1;
 using sensor_msgs::msg::Range;
@@ -65,6 +67,11 @@ class AutoExploreMapper : public Node {
 public:
     AutoExploreMapper()
             : Node("auto_explore_mapper") {
+        statePublisher_ = create_publisher<app_msgs::msg::AutoExploreMappingState>("/auto_explore_mapping/state", 10); 
+        amstate.header.stamp = this->get_clock()->now(); 
+        amstate.state = -1;
+        statePublisher_->publish(amstate);       
+
         RCLCPP_INFO(get_logger(), "AutoExploreMapper started...");
         // node_ = std::shared_ptr<rclcpp::Node>(this, [](rclcpp::Node *) {});
 
@@ -79,6 +86,10 @@ public:
                 this,
                 "/navigate_to_pose");
 
+        
+        amstate.header.stamp = this->get_clock()->now(); 
+        amstate.state = 0;
+        statePublisher_->publish(amstate);
         // while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))){
         //     RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
         // }
@@ -90,6 +101,10 @@ public:
 
         pre_goal.pose.pose.position.x = 0;
         pre_goal.pose.pose.position.y = 0;
+
+        amstate.header.stamp = this->get_clock()->now(); 
+        amstate.state = 1;
+        statePublisher_->publish(amstate);
     }
 
 private:
@@ -100,6 +115,7 @@ private:
     Costmap2D costmap_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
     Publisher<MarkerArray>::SharedPtr markerArrayPublisher_;
+    Publisher<app_msgs::msg::AutoExploreMappingState>::SharedPtr statePublisher_;
     int pre_marker_size = 0;
     Subscription<OccupancyGrid>::SharedPtr map_subscription_;
     bool isExploring_ = false;
@@ -107,10 +123,11 @@ private:
     string mapPath_;
 
     int checkFrontierEmpty = 0;
-
     NavigateToPose::Goal pre_goal;
-
     bool isReturnInitialPoint = false;
+
+    app_msgs::msg::AutoExploreMappingState amstate;
+    bool isFullStart = false;
 
 
     Subscription<PoseWithCovarianceStamped>::SharedPtr pose_subscription_;
@@ -148,6 +165,12 @@ private:
     }
 
     void UpdateFullMap(OccupancyGrid::UniquePtr occupancyGrid) {
+        if(isFullStart){
+            amstate.header.stamp = this->get_clock()->now(); 
+            amstate.state = 2;
+            statePublisher_->publish(amstate);
+        }
+
         if (pose_ == nullptr) { return; }
         RCLCPP_INFO(get_logger(), "update full map start...");
         const auto occupancyGridInfo = occupancyGrid->info;
@@ -327,6 +350,10 @@ private:
     }
 
     void Stop() {
+        amstate.header.stamp = this->get_clock()->now(); 
+        amstate.state = 3;
+        statePublisher_->publish(amstate);
+
         RCLCPP_INFO(get_logger(), "Stopped...");
         pose_subscription_.reset();
         map_subscription_.reset();
@@ -335,6 +362,11 @@ private:
         // node_.reset();
         ClearMarkers();
         markerArrayPublisher_.reset();
+
+        amstate.header.stamp = this->get_clock()->now(); 
+        amstate.state = 4;
+        statePublisher_->publish(amstate);
+        isFullStart = false;
     }
 
     void Explore() {
@@ -373,6 +405,8 @@ private:
             return;
         }
         checkFrontierEmpty = 0;
+
+        isFullStart = true;
         
         const auto frontier = frontiers[0];
         auto goal = NavigateToPose::Goal();

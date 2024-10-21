@@ -36,6 +36,7 @@ set(deps
         map_msgs
         rclcpp_action
         nav2_msgs
+        app_msgs
         )
 set(targets
         auto_explore_mapper
