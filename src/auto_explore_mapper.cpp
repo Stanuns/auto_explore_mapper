@@ -31,6 +31,11 @@
 #include "nav2_map_server/map_saver.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/create_timer_ros.h"
+#include "tf2_ros/message_filter.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2/utils.h"
 
 #include "app_msgs/msg/auto_explore_mapping_state.hpp"
 
@@ -86,6 +91,12 @@ public:
                 this,
                 "/navigate_to_pose");
 
+        tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+        auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+            get_node_base_interface(),
+            get_node_timers_interface());
+        tf2_buffer_->setCreateTimerInterface(timer_interface);
+        tfL_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
         
         amstate.header.stamp = this->get_clock()->now(); 
         amstate.state = 0;
@@ -128,7 +139,8 @@ private:
 
     app_msgs::msg::AutoExploreMappingState amstate;
     bool isFullStart = false;
-
+    std::shared_ptr<tf2_ros::TransformListener> tfL_{nullptr};
+    std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
 
     Subscription<PoseWithCovarianceStamped>::SharedPtr pose_subscription_;
     PoseWithCovarianceStamped::UniquePtr pose_;
@@ -161,7 +173,7 @@ private:
 
     void PoseTopicCallback(PoseWithCovarianceStamped::UniquePtr pose) {
         pose_ = move(pose);
-        RCLCPP_INFO(get_logger(), "PoseTopicCallback...");
+        // RCLCPP_INFO(get_logger(), "PoseTopicCallback...");
     }
 
     void UpdateFullMap(OccupancyGrid::UniquePtr occupancyGrid) {
@@ -290,7 +302,7 @@ private:
         RCLCPP_INFO(get_logger(), "DrawMarkers:frontiers.size(): %d ", frontiers.size());
 
         for (const auto &frontier: frontiers) {
-            RCLCPP_INFO(get_logger(), "visualising: %f,%f ", frontier.centroid.x, frontier.centroid.y);
+            // RCLCPP_INFO(get_logger(), "visualising: %f,%f ", frontier.centroid.x, frontier.centroid.y);
 
             Marker m;
 
@@ -384,7 +396,7 @@ private:
         if(frontiers.size()<=2){
             checkFrontierEmpty++;
             if(checkFrontierEmpty > 25){
-                RCLCPP_WARN(get_logger(), "NO BOUNDARIES FOUND and SAVE MAP! and return to INITIAL POINT!");
+                RCLCPP_WARN(get_logger(), "----------NO BOUNDARIES FOUND!!!!! and return to INITIAL POINT and SAVE MAP!!!-----------");
                 //return to INITIAL POINT
                 auto initial_goal = NavigateToPose::Goal();
                 initial_goal.pose.pose.position.x = 0.0;
@@ -396,19 +408,54 @@ private:
 
                 return;
             }
-            RCLCPP_WARN(get_logger(), "--------------No frontiers can be searched!!, checkFrontierEmpty: %d--------", checkFrontierEmpty);
+            RCLCPP_WARN(get_logger(), "---No frontiers can be searched!!, checkFrontierEmpty: %d---", checkFrontierEmpty);
             //sleep
             sleep(1);
-
-            //清空map_subscription_的map数据
 
             return;
         }
         checkFrontierEmpty = 0;
 
         isFullStart = true;
+
+        //对 frontiers[i].centroid 到机器人当前位姿 pose_ 进行权重排序，选取最合适的边界点
+        vector<double>  evaulate_value_frontiers;
+        for(auto &frontier: frontiers){
+            double dis =  sqrt(pow((double(frontier.centroid.x) - double(pose_->pose.pose.position.x)), 2.0) +
+                                           pow((double(frontier.centroid.y) - double(pose_->pose.pose.position.y)), 2.0)); 
+            /***
+             * [-M_PI, M_PI]
+             *  */ 
+            double yaw_frontier = atan2(double(frontier.centroid.y) - double(pose_->pose.pose.position.y), double(frontier.centroid.x) - double(pose_->pose.pose.position.x));
+            double yaw_base_link = tf2::getYaw(pose_->pose.pose.orientation); //yaw： 0~M_PI   0~-M_PI
+            double delta_yaw = yaw_frontier - yaw_base_link;
+            double delta_yaw_p = fmod(delta_yaw+2*M_PI, 2*M_PI);
+            if(delta_yaw_p > M_PI){
+                delta_yaw_p = fmod(2*M_PI - delta_yaw_p, 2*M_PI);
+            }
+            //debug
+            // RCLCPP_INFO(get_logger(), "---frontier:[%f,%f], dis: %f,---delta_yaw: %f,delta_yaw_p:%f,---yaw_frontier: %f, yaw_base_link: %f", frontier.centroid.x, frontier.centroid.y, dis, delta_yaw, delta_yaw_p, yaw_frontier, yaw_base_link);
+            double ev_frontier = 1*dis + 5*delta_yaw_p; //越小越好
+
+            // geometry_msgs::msg::PoseStamped pose_inBaseLink;
+            // geometry_msgs::msg::PoseStamped pose_inMap;
+            // pose_inMap.header = pose_->header;
+            // pose_inMap.pose = pose_->pose.pose;
+            // try{
+            //     tf2_buffer_->transform(pose_inMap, pose_inBaseLink, "base_link", tf2::durationFromSec(1.0));
+            // }
+            // catch(...){
+            //     return;
+            // }
+            // double yaw_inBaseLink = tf2::getYaw(pose_inBaseLink.pose.orientation);
+            // RCLCPP_INFO(get_logger(), "------delta_yaw: %f yaw_inBaseLink: %f", delta_yaw, yaw_inBaseLink);
+           
+            evaulate_value_frontiers.push_back(ev_frontier);
+        }
+        int min_index = minElementIndexVector(evaulate_value_frontiers);
+
         
-        const auto frontier = frontiers[0];
+        const auto frontier = frontiers[min_index];
         auto goal = NavigateToPose::Goal();
         goal.pose.pose.position = frontier.centroid;
 
@@ -416,8 +463,14 @@ private:
         double dis_goal_pre_goal = sqrt(pow((double(goal.pose.pose.position.x) - double(pre_goal.pose.pose.position.x)), 2.0) +
                                            pow((double(goal.pose.pose.position.y) - double(pre_goal.pose.pose.position.y)), 2.0));
         if(dis_goal_pre_goal < 0.8){
+
+            frontiers.erase(frontiers.begin() + min_index);
+            evaulate_value_frontiers.erase(evaulate_value_frontiers.begin() + min_index);
+
+            int min_index2 = minElementIndexVector(evaulate_value_frontiers);
+
             if(frontiers.size()>4){
-                goal.pose.pose.position = frontiers[4].centroid;
+                goal.pose.pose.position = frontiers[min_index2].centroid;
             }else{
                 goal.pose.pose.position = frontiers[frontiers.size()-1].centroid;
             } 
@@ -433,19 +486,24 @@ private:
         sleep(1);//等待NavigateToGoal
     }
 
+    int minElementIndexVector(const vector<double> &vec){
+        auto min_it = std::min_element(vec.begin(), vec.end());
+        return std::distance(vec.begin(), min_it);
+    }
+
     void NavigateToGoal(const NavigateToPose::Goal &goal){
         isExploring_ = true;
 
         while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(2))){
             RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
         }
-        RCLCPP_INFO(get_logger(), "---------------------- go into NavigateToGoal,isExploring_:%d --------------",isExploring_);  
+        RCLCPP_INFO(get_logger(), "--- go into NavigateToGoal,isExploring_:%d ---",isExploring_);  
         //send_goal()
         auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
         send_goal_options.goal_response_callback = [this](
                 const GoalHandleNavigateToPose::SharedPtr &goal_handle) {
 
-            RCLCPP_INFO(get_logger(), "---------------------- go into goal_response_callback ----------------------");  
+            RCLCPP_INFO(get_logger(), "--- go into goal_response_callback ---");  
 
             if (goal_handle) {
                 RCLCPP_INFO(get_logger(), "Goal accepted by server, waiting for result");
@@ -465,7 +523,7 @@ private:
 
         send_goal_options.result_callback = [this](const GoalHandleNavigateToPose::WrappedResult &result) {        
             //RCLCPP_INFO(get_logger(), "---------Goal end wth a result, isExploring_: %d",isExploring_);
-            RCLCPP_INFO(get_logger(), "---------------------- go into result_callback ,isExploring_: %d--------",isExploring_); 
+            RCLCPP_INFO(get_logger(), "--- go into result_callback ,isExploring_: %d---",isExploring_); 
             //SaveMap();
             //ClearMarkers();
             //Explore();
@@ -735,7 +793,7 @@ private:
                     if (distance < MIN_DISTANCE_TO_FRONTIER) { continue; }
                     //debug
                     double frontier_density = frontier.points.size() * costmap_.getResolution();
-                    RCLCPP_INFO(get_logger(), "frontier_density: %0.6f", frontier_density);
+                    // RCLCPP_INFO(get_logger(), "frontier_density: %0.6f", frontier_density);
 
                     //max of frontier.points.size() = 8
                     if (frontier.points.size() * costmap_.getResolution() >= MIN_FRONTIER_DENSITY) {
