@@ -435,7 +435,9 @@ private:
             }
             //debug
             // RCLCPP_INFO(get_logger(), "---frontier:[%f,%f], dis: %f,---delta_yaw: %f,delta_yaw_p:%f,---yaw_frontier: %f, yaw_base_link: %f", frontier.centroid.x, frontier.centroid.y, dis, delta_yaw, delta_yaw_p, yaw_frontier, yaw_base_link);
-            double ev_frontier = 1*dis + 5*delta_yaw_p; //越小越好
+            double alpha = 1.00; //权重参数
+            double beta = 4.00; //权重参数
+            double ev_frontier = alpha*dis + beta*delta_yaw_p; //越小越好
 
             // geometry_msgs::msg::PoseStamped pose_inBaseLink;
             // geometry_msgs::msg::PoseStamped pose_inMap;
@@ -464,13 +466,17 @@ private:
                                            pow((double(goal.pose.pose.position.y) - double(pre_goal.pose.pose.position.y)), 2.0));
         if(dis_goal_pre_goal < 0.8){
 
-            frontiers.erase(frontiers.begin() + min_index);
-            evaulate_value_frontiers.erase(evaulate_value_frontiers.begin() + min_index);
+            int frontiersSizeThreshold = 5;
+            // int min_index2 = minElementIndexVector(evaulate_value_frontiers);
+            if(frontiers.size() > frontiersSizeThreshold){
 
-            int min_index2 = minElementIndexVector(evaulate_value_frontiers);
+                for(int i = 0; i < frontiersSizeThreshold-3; i++){
+                    frontiers.erase(frontiers.begin() + min_index);
+                    evaulate_value_frontiers.erase(evaulate_value_frontiers.begin() + min_index);
+                    min_index = minElementIndexVector(evaulate_value_frontiers);
+                }
 
-            if(frontiers.size()>4){
-                goal.pose.pose.position = frontiers[min_index2].centroid;
+                goal.pose.pose.position = frontiers[min_index].centroid;
             }else{
                 goal.pose.pose.position = frontiers[frontiers.size()-1].centroid;
             } 
