@@ -436,7 +436,7 @@ private:
             //debug
             // RCLCPP_INFO(get_logger(), "---frontier:[%f,%f], dis: %f,---delta_yaw: %f,delta_yaw_p:%f,---yaw_frontier: %f, yaw_base_link: %f", frontier.centroid.x, frontier.centroid.y, dis, delta_yaw, delta_yaw_p, yaw_frontier, yaw_base_link);
             double alpha = 1.00; //权重参数
-            double beta = 2.00; //权重参数
+            double beta = 3.00; //权重参数
             double ev_frontier = alpha*dis + beta*delta_yaw_p; //越小越好
 
             // geometry_msgs::msg::PoseStamped pose_inBaseLink;
@@ -464,9 +464,9 @@ private:
         //judge the distance of goal and pre_goal, if distance<0.8m, then const auto frontier = frontiers[(int)(frontiers.size()-1)/2];
         double dis_goal_pre_goal = sqrt(pow((double(goal.pose.pose.position.x) - double(pre_goal.pose.pose.position.x)), 2.0) +
                                            pow((double(goal.pose.pose.position.y) - double(pre_goal.pose.pose.position.y)), 2.0));
-        if(dis_goal_pre_goal < 0.8){
+        if(dis_goal_pre_goal < 0.5){
 
-            int frontiersSizeThreshold = 5;
+            int frontiersSizeThreshold = 6;
             // int min_index2 = minElementIndexVector(evaulate_value_frontiers);
             if(frontiers.size() > frontiersSizeThreshold){
 
