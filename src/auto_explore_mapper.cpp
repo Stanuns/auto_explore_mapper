@@ -393,7 +393,7 @@ private:
         //     return;
         // }
         //if(frontiers.empty()){
-        if(frontiers.size()<=2){
+        if(frontiers.size()<=5){
             checkFrontierEmpty++;
             if(checkFrontierEmpty > 25){
                 RCLCPP_WARN(get_logger(), "----------NO BOUNDARIES FOUND!!!!! and return to INITIAL POINT and SAVE MAP!!!-----------");
@@ -436,7 +436,7 @@ private:
             //debug
             // RCLCPP_INFO(get_logger(), "---frontier:[%f,%f], dis: %f,---delta_yaw: %f,delta_yaw_p:%f,---yaw_frontier: %f, yaw_base_link: %f", frontier.centroid.x, frontier.centroid.y, dis, delta_yaw, delta_yaw_p, yaw_frontier, yaw_base_link);
             double alpha = 1.00; //权重参数
-            double beta = 4.00; //权重参数
+            double beta = 2.00; //权重参数
             double ev_frontier = alpha*dis + beta*delta_yaw_p; //越小越好
 
             // geometry_msgs::msg::PoseStamped pose_inBaseLink;
