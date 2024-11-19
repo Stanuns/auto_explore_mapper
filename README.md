@@ -21,5 +21,5 @@ ros2 launch nav2_map_server map_saver_server.launch.py
 ## 二.使用wheeltec diff robot在真实环境下运行
 
 ```bashrc
-ros2 launch wheeltec_auto_explore_mapper auto_explorer_mapping_whole.launch.py
+ros2 launch auto_explore_mapper wheeltec_auto_explorer_mapping_whole.launch.py
 ```
