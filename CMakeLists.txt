@@ -15,13 +15,13 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(robot_interfaces REQUIRED)
 
 set(deps
         rclcpp
         sensor_msgs
         geometry_msgs
         nav_msgs
-        nav2_msgs
         tf2
         tf2_ros
         rclcpp_action
@@ -37,6 +37,7 @@ set(deps
         rclcpp_action
         nav2_msgs
         app_msgs
+        robot_interfaces
         )
 set(targets
         auto_explore_mapper

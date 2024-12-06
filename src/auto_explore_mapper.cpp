@@ -37,7 +37,8 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2/utils.h"
 
-#include "app_msgs/msg/auto_explore_mapping_state.hpp"
+#include "robot_interfaces/msg/auto_explore_mapping_state.hpp"
+#include "robot_interfaces/msg/auto_explore_mapping_trigger.hpp"
 
 
 using std::placeholders::_1;
@@ -72,10 +73,10 @@ class AutoExploreMapper : public Node {
 public:
     AutoExploreMapper()
             : Node("auto_explore_mapper") {
-        statePublisher_ = create_publisher<app_msgs::msg::AutoExploreMappingState>("/auto_explore_mapping/state", 10); 
-        amstate.header.stamp = this->get_clock()->now(); 
+        statePublisher_ = create_publisher<robot_interfaces::msg::AutoExploreMappingState>("/auto_explore_mapping/state", 10); 
         amstate.state = -1;
-        statePublisher_->publish(amstate);       
+        timer_ = this->create_wall_timer(
+            500ms, std::bind(&AutoExploreMapper::AEMStateTimerCallback, this));   
 
         RCLCPP_INFO(get_logger(), "AutoExploreMapper started...");
         // node_ = std::shared_ptr<rclcpp::Node>(this, [](rclcpp::Node *) {});
@@ -91,6 +92,9 @@ public:
                 this,
                 "/navigate_to_pose");
 
+        trigger_subscription_ = create_subscription<robot_interfaces::msg::AutoExploreMappingTrigger>(
+                "/auto_explore_mapping/trigger", 1, bind(&AutoExploreMapper::trigger, this, _1));
+
         tf2_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
         auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
             get_node_base_interface(),
@@ -98,9 +102,7 @@ public:
         tf2_buffer_->setCreateTimerInterface(timer_interface);
         tfL_ = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer_);
         
-        amstate.header.stamp = this->get_clock()->now(); 
         amstate.state = 0;
-        statePublisher_->publish(amstate);
         // while(!nav2_action_client_->wait_for_action_server(std::chrono::seconds(5))){
         //     RCLCPP_INFO(get_logger(), "Navigation action server not available after waiting");
         // }
@@ -113,9 +115,7 @@ public:
         pre_goal.pose.pose.position.x = 0;
         pre_goal.pose.pose.position.y = 0;
 
-        amstate.header.stamp = this->get_clock()->now(); 
-        amstate.state = 1;
-        statePublisher_->publish(amstate);
+        aep_trigger = -1; //初始化
     }
 
 private:
@@ -126,7 +126,7 @@ private:
     Costmap2D costmap_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
     Publisher<MarkerArray>::SharedPtr markerArrayPublisher_;
-    Publisher<app_msgs::msg::AutoExploreMappingState>::SharedPtr statePublisher_;
+    Publisher<robot_interfaces::msg::AutoExploreMappingState>::SharedPtr statePublisher_;
     int pre_marker_size = 0;
     Subscription<OccupancyGrid>::SharedPtr map_subscription_;
     bool isExploring_ = false;
@@ -137,13 +137,17 @@ private:
     NavigateToPose::Goal pre_goal;
     bool isReturnInitialPoint = false;
 
-    app_msgs::msg::AutoExploreMappingState amstate;
-    bool isFullStart = false;
+    robot_interfaces::msg::AutoExploreMappingState amstate;
+    // bool isFullStart = false;
     std::shared_ptr<tf2_ros::TransformListener> tfL_{nullptr};
     std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
 
     Subscription<PoseWithCovarianceStamped>::SharedPtr pose_subscription_;
     PoseWithCovarianceStamped::UniquePtr pose_;
+
+    int aep_trigger;
+    Subscription<robot_interfaces::msg::AutoExploreMappingTrigger>::SharedPtr trigger_subscription_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
     array<unsigned char, 256> costTranslationTable_ = initTranslationTable();
 
@@ -171,16 +175,40 @@ private:
         string getKey() const{to_string(centroid.x) + "," + to_string(centroid.y);}
     };
 
+    void AEMStateTimerCallback(){
+        amstate.header.stamp = this->get_clock()->now(); 
+        statePublisher_->publish(amstate);    
+
+        if(aep_trigger == 1 && amstate.state == 0){
+            //开始自动建图
+            amstate.state = 1;
+            aep_trigger = -1;
+        }else if(aep_trigger == 3 && amstate.state == 2){
+            //停止自动建图
+            Stop();
+            aep_trigger = -1;
+        }else if(aep_trigger == 5 && amstate.state == 2){
+            //保存地图
+            SaveMap();  
+            aep_trigger = -1;     
+        }
+    }
+
+    void trigger(const robot_interfaces::msg::AutoExploreMappingTrigger::SharedPtr tr_){
+        int trig_temp = tr_->to_state;
+        if(trig_temp == 1 || trig_temp == 3 || trig_temp == 5){
+            aep_trigger = trig_temp;
+        }  
+    }
+
     void PoseTopicCallback(PoseWithCovarianceStamped::UniquePtr pose) {
         pose_ = move(pose);
         // RCLCPP_INFO(get_logger(), "PoseTopicCallback...");
     }
 
     void UpdateFullMap(OccupancyGrid::UniquePtr occupancyGrid) {
-        if(isFullStart){
-            amstate.header.stamp = this->get_clock()->now(); 
-            amstate.state = 2;
-            statePublisher_->publish(amstate);
+        if(!(amstate.state == 1) && !(amstate.state == 2)){
+            return;
         }
 
         if (pose_ == nullptr) { return; }
@@ -362,23 +390,20 @@ private:
     }
 
     void Stop() {
-        amstate.header.stamp = this->get_clock()->now(); 
         amstate.state = 3;
-        statePublisher_->publish(amstate);
 
         RCLCPP_INFO(get_logger(), "Stopped...");
-        pose_subscription_.reset();
-        map_subscription_.reset();
+        // pose_subscription_.reset();
+        // map_subscription_.reset();
         nav2_action_client_->async_cancel_all_goals();
         SaveMap();
         // node_.reset();
         ClearMarkers();
-        markerArrayPublisher_.reset();
+        // markerArrayPublisher_.reset();
 
-        amstate.header.stamp = this->get_clock()->now(); 
-        amstate.state = 4;
-        statePublisher_->publish(amstate);
-        isFullStart = false;
+        // isFullStart = false;
+        sleep(1);//sleep 1sec.
+        amstate.state = 0;
     }
 
     void Explore() {
@@ -416,7 +441,7 @@ private:
         }
         checkFrontierEmpty = 0;
 
-        isFullStart = true;
+        amstate.state = 2;
 
         //对 frontiers[i].centroid 到机器人当前位姿 pose_ 进行权重排序，选取最合适的边界点
         vector<double>  evaulate_value_frontiers;
