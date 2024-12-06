@@ -73,7 +73,7 @@ class AutoExploreMapper : public Node {
 public:
     AutoExploreMapper()
             : Node("auto_explore_mapper") {
-        statePublisher_ = create_publisher<robot_interfaces::msg::AutoExploreMappingState>("/auto_explore_mapping/state", 10); 
+        state_publisher_ = create_publisher<robot_interfaces::msg::AutoExploreMappingState>("/auto_explore_mapping/state", 10); 
         amstate.state = -1;
         timer_ = this->create_wall_timer(
             500ms, std::bind(&AutoExploreMapper::AEMStateTimerCallback, this));   
@@ -126,7 +126,7 @@ private:
     Costmap2D costmap_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr nav2_action_client_;
     Publisher<MarkerArray>::SharedPtr markerArrayPublisher_;
-    Publisher<robot_interfaces::msg::AutoExploreMappingState>::SharedPtr statePublisher_;
+    Publisher<robot_interfaces::msg::AutoExploreMappingState>::SharedPtr state_publisher_;
     int pre_marker_size = 0;
     Subscription<OccupancyGrid>::SharedPtr map_subscription_;
     bool isExploring_ = false;
@@ -177,7 +177,7 @@ private:
 
     void AEMStateTimerCallback(){
         amstate.header.stamp = this->get_clock()->now(); 
-        statePublisher_->publish(amstate);    
+        state_publisher_->publish(amstate);    
 
         if(aep_trigger == 1 && amstate.state == 0){
             //开始自动建图
