@@ -36,7 +36,7 @@ set(deps
         map_msgs
         rclcpp_action
         nav2_msgs
-        app_msgs
+        # app_msgs
         robot_interfaces
         )
 set(targets
