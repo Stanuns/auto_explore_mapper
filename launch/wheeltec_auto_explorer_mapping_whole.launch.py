@@ -19,7 +19,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
 
     
-
+    wheeltec_launch_dir = os.path.join(get_package_share_directory('turn_on_wheeltec_robot'), 'launch')
     nav2_launch_file_dir = os.path.join(get_package_share_directory('open_source_slam_launch'), 'launch')
     robot_pose_publisher_launch_file_dir = os.path.join(get_package_share_directory('robot_pose_publisher'), 'launch')
     auto_explore_mapper_launch_file_dir = os.path.join(get_package_share_directory('auto_explore_mapper'), 'launch')
@@ -31,6 +31,14 @@ def generate_launch_description():
             'use_sim_time',
             default_value='false',
             description='Use simulation (Gazebo) clock if true'),
+
+        IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(os.path.join(wheeltec_launch_dir, 'turn_on_wheeltec_robot.launch.py')),
+                launch_arguments={'carto_slam': 'true'}.items(),
+        ),
+        IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(os.path.join(wheeltec_launch_dir, 'wheeltec_lidar.launch.py')),
+        ),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([nav2_launch_file_dir, '/wheeltec_cartographer_mapping.launch.py']),
