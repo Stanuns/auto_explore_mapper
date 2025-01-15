@@ -19,7 +19,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
 
     
-    wheeltec_launch_dir = os.path.join(get_package_share_directory('turn_on_wheeltec_robot'), 'launch')
+    # wheeltec_launch_dir = os.path.join(get_package_share_directory('turn_on_wheeltec_robot'), 'launch')
     slam_launch_file_dir = os.path.join(get_package_share_directory('open_source_slam_launch'), 'launch')
     robot_pose_publisher_launch_file_dir = os.path.join(get_package_share_directory('robot_pose_publisher'), 'launch')
     auto_explore_mapper_launch_file_dir = os.path.join(get_package_share_directory('auto_explore_mapper'), 'launch')
