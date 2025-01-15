@@ -18,7 +18,7 @@ def generate_launch_description():
 
     
 
-    nav2_launch_file_dir = os.path.join(get_package_share_directory('open_source_slam_launch'), 'launch')
+    slam_launch_file_dir = os.path.join(get_package_share_directory('open_source_slam_launch'), 'launch')
     robot_pose_publisher_launch_file_dir = os.path.join(get_package_share_directory('robot_pose_publisher'), 'launch')
     auto_explore_mapper_launch_file_dir = os.path.join(get_package_share_directory('auto_explore_mapper'), 'launch')
     nav2_map_server_launch_file_dir = os.path.join(get_package_share_directory('nav2_map_server'), 'launch')
@@ -31,13 +31,13 @@ def generate_launch_description():
             description='Use simulation (Gazebo) clock if true'),
 
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([nav2_launch_file_dir, '/luxsharerobot_cartographer_mapping.launch.py']),
+            PythonLaunchDescriptionSource([slam_launch_file_dir, '/luxsharerobot_cartographer_mapping.launch.py']),
             launch_arguments={
                 'use_sim_time': use_sim_time,
                 }.items(),
         ),
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([nav2_launch_file_dir, '/luxsharerobot_nav2_autonomous_exploration.launch.py']),
+            PythonLaunchDescriptionSource([slam_launch_file_dir, '/luxsharerobot_nav2_auto_explore_mapping.launch.py']),
             launch_arguments={
                 'use_sim_time': use_sim_time,
                 }.items(),
@@ -51,7 +51,7 @@ def generate_launch_description():
         ),
 
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([auto_explore_mapper_launch_file_dir, '/auto_explore_mapper_d2_cartographer.launch.py']),
+            PythonLaunchDescriptionSource([auto_explore_mapper_launch_file_dir, '/auto_explore_mapper.launch.py']),
             launch_arguments={
                 'use_sim_time': use_sim_time,
                 }.items(),
