@@ -39,7 +39,8 @@ def create_robot_node() -> list:
         parameters=[
             {'use_sim_time': is_sim},
             # {"map_path": map_path}
-        ]
+        ],
+        remappings=[('/map', '/live_map')]
     )
 
     return [
