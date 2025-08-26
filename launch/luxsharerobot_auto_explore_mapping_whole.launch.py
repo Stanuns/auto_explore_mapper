@@ -65,12 +65,12 @@ def generate_launch_description():
                 }.items(),
         ),
 
-        Node(
-            #condition=UnlessCondition(carto_slam),
-            package='robot_localization', 
-            executable='ekf_node', 
-            name = 'carto_ekf_filter_node',
-            parameters=[ekf_carto_config]
-            # remappings=[("/odom", "/odom")]
-        ),
+        # Node(
+        #     #condition=UnlessCondition(carto_slam),
+        #     package='robot_localization', 
+        #     executable='ekf_node', 
+        #     name = 'carto_ekf_filter_node',
+        #     parameters=[ekf_carto_config]
+        #     # remappings=[("/odom", "/odom")]
+        # ),
     ])
