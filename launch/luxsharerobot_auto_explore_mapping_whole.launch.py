@@ -22,6 +22,7 @@ def generate_launch_description():
     robot_pose_publisher_launch_file_dir = os.path.join(get_package_share_directory('robot_pose_publisher'), 'launch')
     auto_explore_mapper_launch_file_dir = os.path.join(get_package_share_directory('auto_explore_mapper'), 'launch')
     nav2_map_server_launch_file_dir = os.path.join(get_package_share_directory('nav2_map_server'), 'launch')
+    ekf_carto_config = os.path.join(get_package_share_directory('base_driver'), 'config', 'ekf_carto.yaml')
 
     return LaunchDescription([
 
@@ -62,5 +63,14 @@ def generate_launch_description():
             launch_arguments={
                 'use_sim_time': use_sim_time,
                 }.items(),
+        ),
+
+        Node(
+            #condition=UnlessCondition(carto_slam),
+            package='robot_localization', 
+            executable='ekf_node', 
+            name = 'carto_ekf_filter_node',
+            parameters=[ekf_carto_config]
+            # remappings=[("/odom", "/odom")]
         ),
     ])
