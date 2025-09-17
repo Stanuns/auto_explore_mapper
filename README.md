@@ -44,7 +44,7 @@ ros2 launch turn_on_wheeltec_robot turn_on_wheeltec_robot.launch.py
 ros2 launch auto_explore_mapper wheeltec_auto_explore_mapping_whole.launch.py
 ```
 
-## 三. 使用luxshare robot在真实环境下运行
+## 三. 使用机器人底盘在真实环境下运行
 
 ### 3.1 启动底盘相关节点，包含激光雷达、里程计、以及各个tf关系
 
@@ -72,6 +72,7 @@ ros2 topic echo /auto_explore_mapping/state
 ```
 
 ## 3.4 激活/停止自动建图,保存当前地图
+
 - 激活/停止自动建图, 保存当前地图, 参考robot_interfaces/msg/AutoExploreMappingTrigger.msg
   **1:开始自动建图; 3:停止自动建图; 5：保存当前地图;**
 - **注意，只有在开始自动建图之后，停止自动建图之前 才能保存当前地图**
@@ -94,14 +95,14 @@ ros2 topic pub -1 /auto_explore_mapping/trigger robot_interfaces/msg/AutoExplore
 ```
 
 - 保存地图名称及目录：
-名称: AutoExploreMap_当前时间戳.pgm 与 AutoExploreMap_当前时间戳.yaml文件
-目录: 当前home目录  
-
-- 地图topic名称: /map 
-
+  名称: AutoExploreMap_当前时间戳.pgm 与 AutoExploreMap_当前时间戳.yaml文件
+  目录: 当前home目录
+- 地图topic名称: /map
 - 自动探索建图停止条件
+
   - 手动停止，发送停止自动建图topic
   - 自动停止, 查看auto_explore_mapper.cpp以下代码部分
+
   ```bashrc
   void Explore() {
     ....
@@ -110,3 +111,7 @@ ros2 topic pub -1 /auto_explore_mapping/trigger robot_interfaces/msg/AutoExplore
     }
   }
   ```
+
+## 感谢：
+
+Thanks for the author of [auto_mapper](https://github.com/Omar-Salem/auto_mapper.git)
